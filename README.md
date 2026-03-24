@@ -4,7 +4,7 @@ Live app: [https://davbachman.github.io/MartasMirrorV2/](https://davbachman.gith
 
 ## What It Does
 
-Marta's Mirror is a browser-based image inversion and stereographic mirror app with full-plane multi-image composition, drawing overlays, project save/import, and PNG export.
+Marta's Mirror is a browser-based image inversion and stereographic mirror app with multi-image composition, drawing overlays, project save/import, and PNG export.
 
 ## Instructions for Use
 
@@ -15,7 +15,7 @@ Marta's Mirror is a browser-based image inversion and stereographic mirror app w
 5. Use the **Rotation** slider to rotate the selected image.
 6. Use **Zoom** to change the inversion circle size and **Image Scale** to resize the selected image.
 7. Use **Move** mode to:
-   - drag the selected image anywhere on the canvas
+   - drag the image inside the inversion circle
    - drag the inversion circle
    - drag the whole scene when no image is selected
    - select drawn shapes

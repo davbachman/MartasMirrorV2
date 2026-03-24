@@ -96,9 +96,8 @@ export function createRenderer(options) {
 
     function getMovePointerPosition(event) {
         const rect = drawCanvas.getBoundingClientRect();
-        const aspect = rect.width / rect.height;
         return {
-            x: ((event.clientX - rect.left) / rect.width * 2 - 1) * aspect,
+            x: (event.clientX - rect.left) / rect.width * 2 - 1,
             y: -((event.clientY - rect.top) / rect.height * 2 - 1)
         };
     }
@@ -171,13 +170,10 @@ export function createRenderer(options) {
 
     function findImageAtCanvasPoint(state, point) {
         const imageIndices = getImageIndicesInRenderOrder(state);
-        const planePoint = getPlanePointAtCanvasPoint(point);
-        const invertedPlanePoint = getInvertedPlanePoint(state, planePoint);
 
         for (let i = imageIndices.length - 1; i >= 0; i -= 1) {
             const imageIndex = imageIndices[i];
-            const imageRecord = state.images[imageIndex];
-            if (getImageUvAtPlanePoint(imageRecord, planePoint) || (invertedPlanePoint && getImageUvAtPlanePoint(imageRecord, invertedPlanePoint))) {
+            if (getImageUvAtCanvasPoint(state, point, state.images[imageIndex])) {
                 return imageIndex;
             }
         }
@@ -230,6 +226,8 @@ export function createRenderer(options) {
 
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.uniform1f(renderModeLocation, 1.0);
+
         for (let i = 0; i < renderImages.length; i += 1) {
             const imageRecord = renderImages[i];
             gl.uniform2f(imageOffsetLocation, imageRecord.offset.x, imageRecord.offset.y);
@@ -239,9 +237,6 @@ export function createRenderer(options) {
             gl.uniform1f(flipYLocation, imageRecord.flipY);
             gl.uniform1f(rotationLocation, imageRecord.rotationDeg * Math.PI / 180.0);
             gl.bindTexture(gl.TEXTURE_2D, imageRecord.texture || fallbackTexture);
-            gl.uniform1f(renderModeLocation, 1.0);
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-            gl.uniform1f(renderModeLocation, 2.0);
             gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
 
@@ -329,56 +324,54 @@ export function createRenderer(options) {
         );
     }
 
-    function getPlanePointAtCanvasPoint(point) {
-        const aspect = canvas.width / canvas.height;
-        return {
-            x: (point.x - 0.5) * 2.0 * aspect,
-            y: (0.5 - point.y) * 2.0
-        };
-    }
-
-    function invertCirclePoint(point, radius) {
-        const distanceSq = point.x * point.x + point.y * point.y;
-        if (radius <= 0 || distanceSq <= 0.000001) {
-            return null;
+    function inverseStereographicPoint(point, radius) {
+        const distance = Math.sqrt(point.x * point.x + point.y * point.y);
+        if (distance <= radius || distance === 0) {
+            return point;
         }
 
-        const inversionScale = radius * radius / distanceSq;
+        const projectedRadius = (radius * radius) / distance;
         return {
-            x: point.x * inversionScale,
-            y: point.y * inversionScale
+            x: point.x / distance * projectedRadius,
+            y: point.y / distance * projectedRadius
         };
     }
 
-    function getInvertedPlanePoint(state, planePoint) {
+    function getProjectionUvAtCanvasPoint(state, point) {
         if (state.circleRadius <= 0) {
             return null;
         }
 
-        const circleRelative = {
-            x: planePoint.x - state.circleCenter.x,
-            y: planePoint.y - state.circleCenter.y
+        const aspect = canvas.width / canvas.height;
+        const centered = {
+            x: (point.x - 0.5) * 2.0 * aspect,
+            y: (0.5 - point.y) * 2.0
         };
+        const circleRelative = {
+            x: centered.x - state.circleCenter.x,
+            y: centered.y - state.circleCenter.y
+        };
+        const distance = Math.sqrt(circleRelative.x * circleRelative.x + circleRelative.y * circleRelative.y);
         const radius = state.circleRadius * 2.0;
-        const invertedRelative = invertCirclePoint(circleRelative, radius);
-        if (!invertedRelative) {
-            return null;
-        }
+        const samplePosition = distance < radius
+            ? circleRelative
+            : inverseStereographicPoint(circleRelative, radius);
 
         return {
-            x: state.circleCenter.x + invertedRelative.x,
-            y: state.circleCenter.y + invertedRelative.y
+            x: samplePosition.x / radius * 0.5 + 0.5,
+            y: samplePosition.y / radius * 0.5 + 0.5
         };
     }
 
-    function getImageUvAtPlanePoint(imageRecord, planePoint) {
-        if (!planePoint || !imageRecord || imageRecord.scale === 0) {
+    function getImageUvAtCanvasPoint(state, point, imageRecord) {
+        const projectionUv = getProjectionUvAtCanvasPoint(state, point);
+        if (!projectionUv || !imageRecord || imageRecord.scale === 0) {
             return null;
         }
 
         const imageAspectRatio = imageRecord.width / imageRecord.height;
-        let centeredX = planePoint.x;
-        let centeredY = planePoint.y;
+        let centeredX = (projectionUv.x - 0.5) * 2.0;
+        let centeredY = (projectionUv.y - 0.5) * 2.0;
 
         centeredX -= imageRecord.offset.x;
         centeredY -= imageRecord.offset.y;

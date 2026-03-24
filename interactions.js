@@ -83,14 +83,13 @@ export function bindInteractions(options) {
             const radius = state.circleRadius * 2.0;
             const edgeThreshold = 0.08;
             const centerThreshold = 0.04;
-            const clickedSelectedImage = selectedImage && clickedImageIndex === state.selectedImageIndex;
 
             if (!selectedImage && state.images.length) {
                 state.moveTarget = 'circle';
-            } else if (clickedSelectedImage) {
-                state.moveTarget = 'image';
             } else if (Math.abs(dist - radius) < edgeThreshold || dist < centerThreshold || (!state.images.length && dist < radius)) {
                 state.moveTarget = 'circle';
+            } else if (dist < radius && selectedImage) {
+                state.moveTarget = 'image';
             } else {
                 state.moveTarget = null;
             }
@@ -191,16 +190,16 @@ export function bindInteractions(options) {
             if (state.moveTarget === 'circle') {
                 state.circleCenter.x += dx;
                 state.circleCenter.y += dy;
-                if (!selectedImage) {
-                    for (let i = 0; i < state.images.length; i += 1) {
-                        state.images[i].offset.x += dx;
-                        state.images[i].offset.y += dy;
-                    }
-                }
+                const maxOffset = 0.7;
+                state.circleCenter.x = Math.max(-maxOffset, Math.min(maxOffset, state.circleCenter.x));
+                state.circleCenter.y = Math.max(-maxOffset, Math.min(maxOffset, state.circleCenter.y));
                 renderer.redrawAnnotations(state);
             } else if (state.moveTarget === 'image' && selectedImage) {
-                selectedImage.offset.x += dx;
-                selectedImage.offset.y += dy;
+                selectedImage.offset.x += dx * 1.5;
+                selectedImage.offset.y += dy * 1.5;
+                const maxOffset = 0.8;
+                selectedImage.offset.x = Math.max(-maxOffset, Math.min(maxOffset, selectedImage.offset.x));
+                selectedImage.offset.y = Math.max(-maxOffset, Math.min(maxOffset, selectedImage.offset.y));
             }
 
             state.lastMovePos = pos;

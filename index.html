@@ -111,12 +111,33 @@
         uniform float u_rotation;
         uniform float u_renderMode;
         
-        vec4 sampleImageAtPlanePoint(vec2 planePoint, vec2 offset, float scale) {
+        // Stereographic projection: maps a point on the plane to the sphere
+        // and vice versa. The circle represents the equator of the sphere.
+        
+        vec2 inverseStereographic(vec2 p, float R) {
+            // p is a point outside the circle of radius R
+            // Returns the corresponding point inside the circle
+            // Using stereographic projection from the "north pole"
+            
+            float r = length(p);
+            if (r <= R) return p; // Inside circle, no projection needed
+            
+            // Inverse stereographic: maps outside to inside
+            // For a point at distance r from center, the projected point
+            // on the sphere maps back to distance R²/r inside
+            float newR = (R * R) / r;
+            return normalize(p) * newR;
+        }
+        
+        vec4 sampleImage(vec2 uv, vec2 offset, float scale) {
             // Adjust for image aspect ratio
             float aspectRatio = u_imageSize.x / u_imageSize.y;
             
-            // Translate into image-local plane coordinates
-            vec2 centered = planePoint - offset;
+            // Center the UV coordinates
+            vec2 centered = (uv - 0.5) * 2.0;
+            
+            // Apply offset (image position within circle)
+            centered -= offset;
             
             // Apply scale
             centered /= scale;
@@ -172,19 +193,11 @@
                 return;
             }
 
-            if (u_renderMode < 1.5) {
-                gl_FragColor = sampleImageAtPlanePoint(centered, u_imageOffset, u_imageScale);
-                return;
-            }
-
-            float distSq = dot(circleRelative, circleRelative);
-            if (R <= 0.0 || distSq <= 0.000001) {
-                gl_FragColor = vec4(0.0);
-                return;
-            }
-
-            vec2 invertedPoint = u_circleCenter + circleRelative * ((R * R) / distSq);
-            gl_FragColor = sampleImageAtPlanePoint(invertedPoint, u_imageOffset, u_imageScale);
+            vec2 samplePosition = dist < R ? circleRelative : inverseStereographic(circleRelative, R);
+            vec2 normalizedPos = samplePosition / R;
+            vec2 imageUV = normalizedPos * 0.5 + 0.5;
+            
+            gl_FragColor = sampleImage(imageUV, u_imageOffset, u_imageScale);
         }
     </script>
 
