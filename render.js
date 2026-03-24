@@ -193,7 +193,7 @@ export function createRenderer(options) {
     }
 
     function render(state) {
-        gl.clearColor(0.92, 0.90, 0.88, 1.0);
+        gl.clearColor(1.0, 1.0, 1.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         gl.useProgram(program);
